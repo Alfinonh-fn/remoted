@@ -6,7 +6,7 @@ if __name__ == '__main__':
         try:
         	s = Starting()
         	if (s.setDatabase(control='getKonstanta', read='p') == "ping_destroy"):
-        		client = Client('081229059446','#pesawatjet')
+        		client = Client('','')
         	else:
         		print "ping sudah dijalankan!!"
         except KeyboardInterrupt:
